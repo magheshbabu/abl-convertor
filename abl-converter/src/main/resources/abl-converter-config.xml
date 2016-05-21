@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/batch"
+	xmlns:beans="http://www.springframework.org/schema/beans" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+     http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+     http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<context:property-placeholder location="abl-converter.properties"
+		ignore-unresolvable="true" />
+	<context:component-scan base-package="com.ibsplc.msc.ablconverter" />
+	<context:annotation-config />
+
+	<!-- Parent job having listeners configured. All jobs should inherit from 
+		this parent job -->
+	<job id="parentJob" job-repository="jobRepository" abstract="true">
+		<!-- <listeners> <listener ref="jobListener" /> </listeners> -->
+	</job>
+
+	<job id="abl-converter-job" parent="parentJob">
+		<step id="sourcecode-processor-step">
+			<tasklet>
+				<chunk reader="multiLineReader" processor="fileProcessor"
+					writer="resultWriter" commit-interval="100" />
+			</tasklet>
+		</step>
+	</job>
+
+	<beans:bean id="ablConverter"
+		class="com.ibsplc.msc.ablconverter.main.AblConverter" />
+
+	<!-- stored job-meta in memory -->
+	<beans:bean id="jobRepository"
+		class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean">
+		<beans:property name="transactionManager" ref="transactionManager" />
+	</beans:bean>
+
+	<beans:bean id="transactionManager"
+		class="org.springframework.batch.support.transaction.ResourcelessTransactionManager" />
+
+	<beans:bean id="jobLauncher"
+		class="org.springframework.batch.core.launch.support.SimpleJobLauncher">
+		<beans:property name="jobRepository" ref="jobRepository" />
+	</beans:bean>
+
+	<beans:bean id="multiLineReader"
+		class="com.ibsplc.msc.ablconverter.batch.reader.MultiLineReader"
+		scope="step">
+		<beans:property name="delegeteReader">
+			<beans:bean id="sourceFileReader"
+				class="org.springframework.batch.item.file.FlatFileItemReader"
+				scope="step" p:resource="file:#{jobParameters['abl.source.file']}">
+				<beans:property name="lineMapper">
+					<beans:bean
+						class="org.springframework.batch.item.file.mapping.PassThroughLineMapper" />
+				</beans:property>
+				<beans:property name="strict" value="true" />
+			</beans:bean>
+		</beans:property>
+	</beans:bean>
+
+
+
+	<beans:bean id="resultWriter"
+		class="org.springframework.batch.item.file.FlatFileItemWriter" scope="step"
+		p:resource="file:#{jobParameters['abl.result.file']}">
+		<beans:property name="lineAggregator">
+			<beans:bean
+				class="org.springframework.batch.item.file.transform.PassThroughLineAggregator" />
+		</beans:property>
+	</beans:bean>
+
+	<beans:bean id="InitProcessor"
+		class="com.ibsplc.msc.ablconverter.batch.processor.InitProcessor"
+		scope="step" />
+
+	<beans:bean id="arrayConverter"
+		class="com.ibsplc.msc.ablconverter.batch.processor.ArrayConverter"
+		scope="step" />
+
+	<beans:bean id="extendConverter"
+		class="com.ibsplc.msc.ablconverter.batch.processor.ExtendConverter"
+		scope="step" />
+
+	<beans:bean id="aggregator"
+		class="com.ibsplc.msc.ablconverter.batch.processor.Aggregator" scope="step" />
+
+	<beans:bean id="fileProcessor"
+		class="org.springframework.batch.item.support.CompositeItemProcessor">
+		<beans:property name="delegates">
+			<beans:list>
+				<beans:ref bean="InitProcessor" />
+				<beans:ref bean="arrayConverter" />
+				<beans:ref bean="extendConverter" />
+				<beans:ref bean="aggregator" />
+			</beans:list>
+		</beans:property>
+	</beans:bean>
+
+	<beans:bean id="tableFieldHolder"
+		class="com.ibsplc.msc.ablconverter.array.data.TableFieldHolder"
+		init-method="load" />
+
+</beans:beans>
