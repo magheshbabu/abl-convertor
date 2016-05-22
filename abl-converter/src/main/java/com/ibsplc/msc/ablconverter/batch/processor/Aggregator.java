@@ -34,13 +34,13 @@ public class Aggregator implements ItemProcessor<ConverterExecutionContext, Stri
 						builder.insert(0, f.getCode());
 						continue;
 					}
-					
+					 
 					builder.append(" " + f.getCode() + " ");// appending comment at the last of line
 				}
 			}
 			
-			//builder.insert(0, "/* " + item.getOriginalLine().getLine() + " */" + oldLineComments + "\n");
-			builder.insert(0, "/* " + item.getOriginalLine().getLine() + " */" );
+			builder.insert(0, "/* " + item.getOriginalLine().getLine().trim() + " */" + oldLineComments + "\n");
+			//builder.insert(0, "/* " + "item.getOriginalLine().getLine()" + " */" );
 			builder.append(newLineComments);
 			
 			String processedLine = builder.toString();
@@ -50,7 +50,7 @@ public class Aggregator implements ItemProcessor<ConverterExecutionContext, Stri
 			return processedLine;
 		}
 		
-		return item.getOriginalLine().getLine();
+		return item.getOriginalLine().getLine().trim();
 	}
 
 }
